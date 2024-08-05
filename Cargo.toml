@@ -1,0 +1,24 @@
+[package]
+name = "minisong"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.14.1", default-features = false, features = [
+  "bevy_state"
+]}
+bevy-tokio-tasks = "0.14.0"
+anyhow = "1.0.86"
+mpd_client = "1.4.1"
+crossterm = "0.28.1"
+ratatui = "0.27.0"
+ratatui-image = "1.0.5"
+throbber-widgets-tui = "0.6.0"
+tokio = { version = "1.36.0", features = ["rt", "macros", "rt-multi-thread", "time", "signal"] }
+clap = { version = "4.5.13", features = ["derive"] }
+time = { version = "0.3.36", features = ["formatting", "macros"] }
+image = "0.25"
+strum = "0.26.3"
+tracing-error = "0.2.0"
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }

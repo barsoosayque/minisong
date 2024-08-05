@@ -1,0 +1,39 @@
+= Minisong
+
+Small terminal MPD client built on top of bevy and ratatui.
+
+== Building & running
+
+```
+cargo run -- --port $MPD_PORT
+```
+
+== Roadmap
+
+* [ ] General tech
+** [ ] `#deny(missing_docs)`
+* [ ] General UI
+** [ ] Selectable tabs
+** [ ] Dynamic quick help footer
+** [ ] Help page
+* [ ] Playback tab
+** [ ] Info about current song
+** [ ] Album art of current song
+** [ ] General MPD state info (volume, enabled modes)
+* [ ] Queue tab
+** [ ] Table with configurable columns about songs in the queue
+** [ ] Selectable songs, selected song can be played or removed from the queue
+** [ ] Add selected song to some playlist
+** [ ] Multi-select for songs, everything expect "play" from single selection, but now for a batch of songs
+** [ ] Fzf filter
+* [ ] Playlists tab
+** [ ] Browse available playlists with quick info about them
+** [ ] Create a new playlist (just create a new file)
+** [ ] Add selected playlist to the queue
+** [ ] Fzf filter
+* [ ] Database tab
+** [ ] Tree view of the physical database
+** [ ] Add selected file/directory to the queue
+** [ ] Add selected file/directory to some playlist
+** [ ] Search by text in any tag
+** [ ] Actuall search filters
