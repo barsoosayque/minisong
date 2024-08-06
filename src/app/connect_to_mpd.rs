@@ -5,10 +5,8 @@ use crate::{
 };
 use bevy::prelude::*;
 use bevy_tokio_tasks::TokioTasksRuntime;
-use ratatui::{
-    style::{Color, Style},
-    text::{Line, Span, Text},
-};
+use ratatui::style::{Color, Style};
+use ratatui_macros::{span, text};
 
 use super::AppState;
 
@@ -43,12 +41,13 @@ fn connect_to_mpd_startup_system(
                     error!("Error while connecting to MPD: {error} !");
                     let mut commands = ctx.world.commands();
                     commands.add(DespawnUI);
-                    let lines = vec![
-                        Line::from("Error while connecting to MPD:"),
-                        Line::from(Span::styled(error.to_string(), Style::new().fg(Color::Red))),
-                    ];
+                    let text = text![
+                        "Error while connecting to MPD:",
+                        span![Style::new().fg(Color::Red); error.to_string()],
+                    ]
+                    .centered();
                     commands.spawn(
-                        WidgetBundle::from(Label::new(Text::from(lines).centered()))
+                        WidgetBundle::from(Label::new(text))
                             .align_horizontal(Align::Center)
                             .align_vertical(Align::Center),
                     );

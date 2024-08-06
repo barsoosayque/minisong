@@ -1,13 +1,19 @@
+use std::{fmt::Display, time::Duration};
+
 use crate::{
     mpd::MpdCurrentTrack,
-    ui::{Align, Block, Label, Throbber, WidgetBundle},
+    ui::{Align, Block, Throbber, WidgetAppExt, WidgetBundle, WidgetDrawContext},
 };
 use bevy::prelude::*;
+use chrono::Timelike;
+use mpd_client::responses::PlayState;
 use ratatui::{
     layout::{Constraint, Direction},
-    style::{Style, Stylize},
-    text::{Line, Span, Text},
+    style::{Color, Style, Stylize},
+    symbols,
+    widgets::LineGauge,
 };
+use ratatui_macros::{horizontal, span, text, vertical};
 
 use super::AppState;
 
@@ -16,17 +22,15 @@ pub struct ClientStatePlugin;
 
 impl Plugin for ClientStatePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(AppState::Client), client_startup_system).add_systems(
-            Update,
-            (player_ui_system.run_if(resource_changed_or_removed::<MpdCurrentTrack>()),)
-                .run_if(in_state(AppState::Client)),
-        );
+        app.add_systems(OnEnter(AppState::Client), client_startup_system);
+
+        app.register_widget::<CurrentTrack, _>(current_track_draw_system);
     }
 }
 
 /// Tag for the current track playback widget.
 #[derive(Component, Default, Clone, Copy)]
-pub struct CurrentTrackWidget;
+pub struct CurrentTrack;
 
 /// System to spawn all client UI.
 pub fn client_startup_system(mut commands: Commands) {
@@ -39,57 +43,85 @@ pub fn client_startup_system(mut commands: Commands) {
                     .align_vertical(Align::Center)
                     .constraint(Constraint::Percentage(50)),
             );
-            children.spawn((
-                WidgetBundle::from(Throbber::new("Loading player.."))
-                    .align_horizontal(Align::Center)
-                    .align_vertical(Align::Center)
-                    .constraint(Constraint::Percentage(50)),
-                CurrentTrackWidget,
-            ));
+            children.spawn((WidgetBundle::<CurrentTrack>::new()
+                .align_horizontal(Align::Center)
+                .align_vertical(Align::Center)
+                .constraint(Constraint::Percentage(50)),));
         });
 }
 
-/// System to update current track info in UI.
-pub fn player_ui_system(
-    mut commands: Commands,
-    current: Option<Res<MpdCurrentTrack>>,
-    current_track_query: Query<Entity, With<CurrentTrackWidget>>,
+/// System to draw current track info.
+fn current_track_draw_system(
+    In(mut ctx): In<WidgetDrawContext>,
+    current_track: Option<Res<MpdCurrentTrack>>,
 ) {
-    let Ok(entity) = current_track_query.get_single() else {
-        return;
-    };
+    let height = if current_track.is_some() { 4 } else { 1 };
+    ctx.draw_sized((u16::MAX, height), |frame, rect| {
+        let Some(current_track) = current_track else {
+            frame.render_widget(
+                text![span![Style::new().italic(); "No track is playing"]].centered(),
+                rect,
+            );
+            return;
+        };
 
-    let label = if let Some(current) = current {
-        let text = Text::from(vec![
-            Line::from(vec![Span::styled(current.track.title.clone(), Style::new().bold())]),
-            Line::from(vec![Span::styled(current.track.album.clone(), Style::new().italic())]),
-            Line::from(""),
-            Line::from(vec![Span::styled(current.track.artists.join(", "), Style::new())]),
-        ])
-        .centered();
+        let [title_area, other_info_area, progress_area] = vertical![==2, ==1, ==1].areas(rect);
 
-        Label::new(text)
-    } else {
-        let text = Text::from(Span::styled("No track playing", Style::new().italic())).centered();
-        Label::new(text)
-    };
+        let title_widget = text![span![Style::new().bold(); current_track.track.title]];
+        frame.render_widget(title_widget, title_area);
 
-    commands.entity(entity).remove::<Throbber>().insert(label);
+        let [album_area, artists_area] = horizontal![==50%, ==50%].areas(other_info_area);
 
-    //                 LineGauge::default()
-    //                     .gauge_style(Style::default().fg(Color::Magenta))
-    //                     .ratio(ratio)
-    //                     .line_set(symbols::line::THICK)
-    //                     .label(Span::styled(
-    //                         match playback.state {
-    //                             PlayState::Stopped => "⏹",
-    //                             PlayState::Playing => "⏵",
-    //                             PlayState::Paused => "⏸",
-    //                         },
-    //                         Style::new().fg(Color::Green),
-    //                     )),
-    // let format = format_description!("[hour]:[minute]:[second]");
-    // let ratio = (current.cur_time.as_secs_f64() / current.total_time.as_secs_f64()).clamp(0.0, 1.0);
+        let album_widget = text![span![Style::new().italic(); current_track.track.album]];
+        frame.render_widget(album_widget, album_area);
+
+        let artists_widget =
+            text![span![Style::new().italic(); current_track.track.artists.join(", ")]]
+                .right_aligned();
+        frame.render_widget(artists_widget, artists_area);
+
+        let time_widget = {
+            fn format_time(duration: Duration) -> impl Display {
+                let chrono_time =
+                    chrono::DateTime::from_timestamp_millis(duration.as_millis() as i64).unwrap();
+                if chrono_time.hour() > 0 {
+                    chrono_time.format("%H:%M:%S")
+                } else {
+                    chrono_time.format("%M:%S")
+                }
+            }
+
+            let current_time = format_time(current_track.cur_time);
+            let total_time = format_time(current_track.total_time);
+
+            text![span![Style::new().italic().fg(Color::Yellow); " {current_time}/{total_time}"]]
+        };
+
+        let progress_bar_widget = {
+            let ratio = (current_track.cur_time.as_secs_f64()
+                / current_track.total_time.as_secs_f64())
+            .clamp(0.0, 1.0);
+
+            LineGauge::default()
+                .filled_style(Style::default().fg(Color::Magenta))
+                .ratio(ratio)
+                .line_set(symbols::line::THICK)
+                .label(span![
+                    Style::new().fg(Color::Green);
+                    match current_track.state {
+                        PlayState::Stopped => "⏹",
+                        PlayState::Playing => "⏵",
+                        PlayState::Paused => "⏸",
+                    }
+                ])
+        };
+
+        let [progress_bar_area, time_area] =
+            horizontal![==100%, ==time_widget.width() as u16].areas(progress_area);
+
+        frame.render_widget(progress_bar_widget, progress_bar_area);
+        frame.render_widget(time_widget, time_area);
+    });
 }
 
 // From times before I had this crazy idea to marry bevy and raratui,

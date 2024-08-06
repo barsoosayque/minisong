@@ -1,7 +1,7 @@
 use std::any::TypeId;
 
 use bevy::{ecs::system::SystemId, prelude::*};
-use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect};
+use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect, Size};
 
 use crate::ui::RatatuiDrawContext;
 
@@ -149,12 +149,17 @@ impl WidgetDrawContext {
     }
 
     /// Draw a widget via `op`, but provide `size` (enabling alignment).
-    pub fn draw_sized(&mut self, size: Size, op: impl FnOnce(&mut ratatui::Frame, Rect)) {
+    pub fn draw_sized(
+        &mut self,
+        size: impl Into<Size>,
+        op: impl FnOnce(&mut ratatui::Frame, Rect),
+    ) {
+        let size = size.into();
         let area = self.rect().clone();
-        let [area] = Layout::horizontal([Constraint::Length(size.width as u16)])
+        let [area] = Layout::horizontal([Constraint::Length(size.width)])
             .flex(self.style.align_horizontal.as_flex())
             .areas(area);
-        let [area] = Layout::vertical([Constraint::Length(size.height as u16)])
+        let [area] = Layout::vertical([Constraint::Length(size.height)])
             .flex(self.style.align_vertical.as_flex())
             .areas(area);
 
@@ -165,25 +170,6 @@ impl WidgetDrawContext {
     pub fn draw(&mut self, op: impl FnOnce(&mut ratatui::Frame, Rect)) {
         let area = self.rect().clone();
         op(self.frame(), area);
-    }
-}
-
-/// Widget size.
-#[derive(Default, Debug, Clone, Copy, PartialEq)]
-pub struct Size {
-    width: usize,
-    height: usize,
-}
-
-impl Size {
-    /// Create a new size.
-    pub fn new(width: usize, height: usize) -> Self {
-        Self { width, height }
-    }
-
-    /// Create a new size with equal dimensions.
-    pub fn rect(size: usize) -> Self {
-        Self::new(size, size)
     }
 }
 

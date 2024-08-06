@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use super::widget::{Size, WidgetAppExt, WidgetDrawContext};
+use super::widget::{WidgetAppExt, WidgetDrawContext};
 
 pub struct ThrobberPlugin;
 impl Plugin for ThrobberPlugin {
@@ -28,7 +28,7 @@ fn throbber_draw_system(In(mut ctx): In<WidgetDrawContext>, mut data_query: Quer
     let Throbber { label, state } = data.as_mut();
     state.calc_next();
 
-    ctx.draw_sized(Size::new(label.len() + 3, 1), |frame, rect| {
+    ctx.draw_sized((label.len() as u16 + 3, 1), |frame, rect| {
         let widget = throbber_widgets_tui::Throbber::default()
             .label(label.clone())
             .throbber_set(throbber_widgets_tui::BRAILLE_EIGHT_DOUBLE)

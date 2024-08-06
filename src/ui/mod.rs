@@ -23,7 +23,7 @@ pub use block::Block;
 // pub use image::Image; TODO
 pub use label::Label;
 pub use throbber::Throbber;
-pub use widget::{Align, WidgetBundle, WidgetStyle};
+pub use widget::{Align, WidgetAppExt, WidgetBundle, WidgetDrawContext, WidgetStyle};
 use widget::{WidgetSystemId, WidgetTag};
 
 /// Plugin for building and rendering ratatui's UI.

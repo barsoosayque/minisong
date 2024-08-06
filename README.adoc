@@ -17,7 +17,7 @@ cargo run -- --port $MPD_PORT
 ** [ ] Dynamic quick help footer
 ** [ ] Help page
 * [ ] Playback tab
-** [ ] Info about current song
+** [x] Info about current song
 ** [ ] Album art of current song
 ** [ ] General MPD state info (volume, enabled modes)
 * [ ] Queue tab

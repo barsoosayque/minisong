@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use super::widget::{Size, WidgetAppExt, WidgetDrawContext};
+use super::widget::{WidgetAppExt, WidgetDrawContext};
 
 pub struct TextPlugin;
 impl Plugin for TextPlugin {
@@ -25,7 +25,7 @@ fn text_draw_system(In(mut ctx): In<WidgetDrawContext>, data_query: Query<&Label
         return;
     };
 
-    ctx.draw_sized(Size::new(data.text.width(), data.text.lines.len()), |frame, rect| {
+    ctx.draw_sized((data.text.width() as u16, data.text.lines.len() as u16), |frame, rect| {
         frame.render_widget(&data.text, rect);
     });
 }
