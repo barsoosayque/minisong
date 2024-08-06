@@ -1,39 +1,26 @@
-use std::sync::LazyLock;
-
 use bevy::prelude::*;
 
-use super::{
-    widget::{Size, WidgetDrawContext, WidgetTag},
-    RatatuiAppExt,
-};
-
-static TAG: LazyLock<WidgetTag> = LazyLock::new(|| WidgetTag::new::<Data>());
+use super::widget::{Size, WidgetAppExt, WidgetDrawContext};
 
 pub struct TextPlugin;
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
-        app.register_draw_system(*TAG, text_draw_system);
+        app.register_widget::<Label, _>(text_draw_system);
     }
 }
 
 #[derive(Component, Default, Clone, PartialEq)]
-struct Data {
-    text: ratatui::text::Text<'static>,
-}
-
-#[derive(Bundle)]
 pub struct Label {
-    data: Data,
-    tag: WidgetTag,
+    pub text: ratatui::text::Text<'static>,
 }
 
 impl Label {
     pub fn new(text: impl Into<ratatui::text::Text<'static>>) -> Self {
-        Self { data: Data { text: text.into() }, tag: *TAG }
+        Self { text: text.into() }
     }
 }
 
-fn text_draw_system(In(mut ctx): In<WidgetDrawContext>, data_query: Query<&Data>) {
+fn text_draw_system(In(mut ctx): In<WidgetDrawContext>, data_query: Query<&Label>) {
     let Ok(data) = data_query.get(ctx.entity()) else {
         return;
     };

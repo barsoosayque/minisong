@@ -59,7 +59,7 @@ fn connect_to_mpd_startup_system(
     });
 
     commands.spawn(
-        WidgetBundle::from(Throbber::new().with_label("Trying to connect to an MPD server..."))
+        WidgetBundle::from(Throbber::new("Trying to connect to an MPD server..."))
             .align_horizontal(Align::Center)
             .align_vertical(Align::Center),
     );

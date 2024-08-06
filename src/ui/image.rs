@@ -1,45 +1,34 @@
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 
 use bevy::prelude::*;
 use ratatui_image::{picker::Picker, protocol::StatefulProtocol, StatefulImage};
 
-use super::{
-    widget::{WidgetDrawContext, WidgetTag},
-    RatatuiAppExt,
-};
-
-static TAG: LazyLock<WidgetTag> = LazyLock::new(|| WidgetTag::new::<Data>());
+use super::widget::{WidgetAppExt, WidgetDrawContext};
 
 pub struct ImagePlugin;
 impl Plugin for ImagePlugin {
     fn build(&self, app: &mut App) {
-        app.register_draw_system(*TAG, image_draw_system);
+        app.register_widget::<Image, _>(image_draw_system);
     }
 }
 
 #[derive(Component, Default, Clone)]
-struct Data {
+pub struct Image {
     buffer: Vec<u8>,
     image: Option<Arc<dyn StatefulProtocol>>,
 }
 
-#[derive(Bundle)]
-pub struct Image {
-    data: Data,
-    tag: WidgetTag,
-}
-
 impl Image {
     pub fn new(buffer: Vec<u8>) -> Self {
-        Self { data: Data { buffer, ..default() }, tag: *TAG }
+        Self { buffer, ..default() }
     }
 }
 
-fn image_draw_system(In(mut ctx): In<WidgetDrawContext>, mut data_query: Query<&mut Data>) {
+fn image_draw_system(In(mut ctx): In<WidgetDrawContext>, mut data_query: Query<&mut Image>) {
     let Ok(mut data) = data_query.get_mut(ctx.entity()) else {
         return;
     };
-    let Data { buffer, image } = data.as_mut();
+    let Image { buffer, image } = data.as_mut();
 
     if image.is_none() {
         let mut picker = Picker::from_termios().unwrap();

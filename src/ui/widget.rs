@@ -7,19 +7,40 @@ use crate::ui::RatatuiDrawContext;
 
 use super::RatatuiContext;
 
-/// Widget layout configuration.
-#[derive(Component, Default, Clone)]
-pub struct WidgetStyle {
-    /// Horizontal aligment of self inside the allocated area, usable if widget is sized.
-    pub align_horizontal: Align,
-    /// Vertical aligment of self inside the allocated area, usable if widget is sized.
-    pub align_vertical: Align,
-    /// Constraint for this widget allocated area, used by parent's layout.
-    pub constraint: Constraint,
-    /// Direction of this widget's children widgets.
-    pub content_direction: Direction,
-    /// Flex mode of this wiudget's children widgets.
-    pub content_flex: Flex,
+/// Extension for [`World`] to register new widgets.
+pub trait WidgetAppExt {
+    /// Register a widget with its drawing system.
+    fn register_widget<W: Component, M>(
+        &mut self,
+        draw_system: impl IntoSystem<WidgetDrawContext, (), M> + 'static,
+    ) -> &mut Self;
+}
+
+impl WidgetAppExt for App {
+    fn register_widget<W: Component, M>(
+        &mut self,
+        system: impl IntoSystem<WidgetDrawContext, (), M> + 'static,
+    ) -> &mut Self {
+        let tag = WidgetTag::new::<W>();
+
+        // Register draw system
+        if self.world().resource::<RatatuiContext>().draw_systems.contains_key(&tag) {
+            warn!("Widget already registered: {}", std::any::type_name::<W>());
+            return self;
+        }
+        let system_id = self.world_mut().register_system(system);
+        self.world_mut().resource_mut::<RatatuiContext>().draw_systems.insert(tag, system_id);
+
+        // Add a hook to insert widget tag for this widget
+        self.world_mut().register_component_hooks::<W>().on_add(
+            |mut world, entity, _component_id| {
+                let mut commands = world.commands();
+                commands.entity(entity).insert(WidgetTag::new::<W>());
+            },
+        );
+
+        self
+    }
 }
 
 /// [`SystemId`] for widget draw systems.
@@ -34,6 +55,21 @@ impl WidgetTag {
     pub fn new<C: Component>() -> Self {
         Self(std::any::TypeId::of::<C>())
     }
+}
+
+/// Widget layout configuration.
+#[derive(Component, Default, Clone)]
+pub struct WidgetStyle {
+    /// Horizontal aligment of self inside the allocated area, usable if widget is sized.
+    pub align_horizontal: Align,
+    /// Vertical aligment of self inside the allocated area, usable if widget is sized.
+    pub align_vertical: Align,
+    /// Constraint for this widget allocated area, used by parent's layout.
+    pub constraint: Constraint,
+    /// Direction of this widget's children widgets.
+    pub content_direction: Direction,
+    /// Flex mode of this wiudget's children widgets.
+    pub content_flex: Flex,
 }
 
 /// A singular node of widget tree.

@@ -1,54 +1,31 @@
-use std::sync::LazyLock;
-
 use bevy::prelude::*;
 
-use super::{
-    widget::{Size, WidgetDrawContext, WidgetTag},
-    RatatuiAppExt,
-};
-
-static TAG: LazyLock<WidgetTag> = LazyLock::new(|| WidgetTag::new::<Data>());
+use super::widget::{Size, WidgetAppExt, WidgetDrawContext};
 
 pub struct ThrobberPlugin;
 impl Plugin for ThrobberPlugin {
     fn build(&self, app: &mut App) {
-        app.register_draw_system(*TAG, throbber_draw_system);
+        app.register_widget::<Throbber, _>(throbber_draw_system);
     }
 }
 
 #[derive(Component, Default, Clone)]
-struct Data {
-    label: String,
+pub struct Throbber {
+    pub label: String,
     state: throbber_widgets_tui::ThrobberState,
 }
 
-#[derive(Bundle)]
-pub struct Throbber {
-    data: Data,
-    tag: WidgetTag,
-}
-
-impl Default for Throbber {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Throbber {
-    pub fn new() -> Self {
-        Self { data: Data::default(), tag: *TAG }
-    }
-
-    pub fn with_label(self, label: impl ToString) -> Self {
-        Self { data: Data { label: label.to_string(), ..self.data }, ..self }
+    pub fn new(label: impl ToString) -> Self {
+        Self { label: label.to_string(), ..default() }
     }
 }
 
-fn throbber_draw_system(In(mut ctx): In<WidgetDrawContext>, mut data_query: Query<&mut Data>) {
+fn throbber_draw_system(In(mut ctx): In<WidgetDrawContext>, mut data_query: Query<&mut Throbber>) {
     let Ok(mut data) = data_query.get_mut(ctx.entity()) else {
         return;
     };
-    let Data { label, state } = data.as_mut();
+    let Throbber { label, state } = data.as_mut();
     state.calc_next();
 
     ctx.draw_sized(Size::new(label.len() + 3, 1), |frame, rect| {

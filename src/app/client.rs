@@ -18,9 +18,8 @@ impl Plugin for ClientStatePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(AppState::Client), client_startup_system).add_systems(
             Update,
-            player_ui_system.run_if(
-                in_state(AppState::Client).and_then(resource_exists_and_changed::<MpdCurrentTrack>),
-            ),
+            (player_ui_system.run_if(resource_changed_or_removed::<MpdCurrentTrack>()),)
+                .run_if(in_state(AppState::Client)),
         );
     }
 }
@@ -35,13 +34,13 @@ pub fn client_startup_system(mut commands: Commands) {
         .spawn(WidgetBundle::<Block>::new().content_direction(Direction::Horizontal))
         .with_children(|children| {
             children.spawn(
-                WidgetBundle::from(Throbber::new().with_label("Loading album art.."))
+                WidgetBundle::from(Throbber::new("Loading album art.."))
                     .align_horizontal(Align::Center)
                     .align_vertical(Align::Center)
                     .constraint(Constraint::Percentage(50)),
             );
             children.spawn((
-                WidgetBundle::from(Throbber::new().with_label("Loading player.."))
+                WidgetBundle::from(Throbber::new("Loading player.."))
                     .align_horizontal(Align::Center)
                     .align_vertical(Align::Center)
                     .constraint(Constraint::Percentage(50)),
@@ -53,25 +52,44 @@ pub fn client_startup_system(mut commands: Commands) {
 /// System to update current track info in UI.
 pub fn player_ui_system(
     mut commands: Commands,
-    current: Res<MpdCurrentTrack>,
+    current: Option<Res<MpdCurrentTrack>>,
     current_track_query: Query<Entity, With<CurrentTrackWidget>>,
 ) {
     let Ok(entity) = current_track_query.get_single() else {
         return;
     };
 
+    let label = if let Some(current) = current {
+        let text = Text::from(vec![
+            Line::from(vec![Span::styled(current.track.title.clone(), Style::new().bold())]),
+            Line::from(vec![Span::styled(current.track.album.clone(), Style::new().italic())]),
+            Line::from(""),
+            Line::from(vec![Span::styled(current.track.artists.join(", "), Style::new())]),
+        ])
+        .centered();
+
+        Label::new(text)
+    } else {
+        let text = Text::from(Span::styled("No track playing", Style::new().italic())).centered();
+        Label::new(text)
+    };
+
+    commands.entity(entity).remove::<Throbber>().insert(label);
+
+    //                 LineGauge::default()
+    //                     .gauge_style(Style::default().fg(Color::Magenta))
+    //                     .ratio(ratio)
+    //                     .line_set(symbols::line::THICK)
+    //                     .label(Span::styled(
+    //                         match playback.state {
+    //                             PlayState::Stopped => "⏹",
+    //                             PlayState::Playing => "⏵",
+    //                             PlayState::Paused => "⏸",
+    //                         },
+    //                         Style::new().fg(Color::Green),
+    //                     )),
     // let format = format_description!("[hour]:[minute]:[second]");
     // let ratio = (current.cur_time.as_secs_f64() / current.total_time.as_secs_f64()).clamp(0.0, 1.0);
-
-    let text = Text::from(vec![
-        Line::from(vec![Span::styled(current.track.title.clone(), Style::new().bold())]),
-        Line::from(vec![Span::styled(current.track.album.clone(), Style::new().italic())]),
-        Line::from(""),
-        Line::from(vec![Span::styled(current.track.artists.join(", "), Style::new())]),
-    ])
-    .centered();
-
-    commands.entity(entity).remove::<Throbber>().insert(Label::new(text));
 }
 
 // From times before I had this crazy idea to marry bevy and raratui,

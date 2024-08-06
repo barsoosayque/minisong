@@ -24,8 +24,7 @@ pub use block::Block;
 pub use label::Label;
 pub use throbber::Throbber;
 pub use widget::{Align, WidgetBundle, WidgetStyle};
-
-use self::widget::{WidgetDrawContext, WidgetSystemId, WidgetTag};
+use widget::{WidgetSystemId, WidgetTag};
 
 /// Plugin for building and rendering ratatui's UI.
 pub struct UiPlugin;
@@ -118,33 +117,6 @@ impl<'a, 'b> RatatuiDrawContext<'a, 'b> {
     /// Get current drawing frame area.
     fn frame_size(&self) -> ratatui::prelude::Rect {
         self.frame.size()
-    }
-}
-
-/// Extension for [`World`] to register new widget's drawing systems.
-pub trait RatatuiAppExt {
-    /// Register a new draw system for a widget.
-    fn register_draw_system<M>(
-        &mut self,
-        tag: WidgetTag,
-        system: impl IntoSystem<WidgetDrawContext, (), M> + 'static,
-    ) -> &mut Self;
-}
-
-impl RatatuiAppExt for App {
-    fn register_draw_system<M>(
-        &mut self,
-        tag: WidgetTag,
-        system: impl IntoSystem<WidgetDrawContext, (), M> + 'static,
-    ) -> &mut Self {
-        if self.world().resource::<RatatuiContext>().draw_systems.contains_key(&tag) {
-            warn!("Draw system registered multiple times: {tag:?}");
-            return self;
-        }
-
-        let system_id = self.world_mut().register_system(system);
-        self.world_mut().resource_mut::<RatatuiContext>().draw_systems.insert(tag, system_id);
-        self
     }
 }
 
