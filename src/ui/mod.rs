@@ -20,10 +20,10 @@ mod throbber;
 mod widget;
 
 pub use block::Block;
-// pub use image::Image; TODO
+pub use image::Image;
 pub use label::Label;
 pub use throbber::Throbber;
-pub use widget::{Align, WidgetAppExt, WidgetBundle, WidgetDrawContext, WidgetStyle};
+pub use widget::{Align, WidgetAppExt, WidgetBundle, WidgetDrawContext};
 use widget::{WidgetSystemId, WidgetTag};
 
 /// Plugin for building and rendering ratatui's UI.

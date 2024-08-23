@@ -15,7 +15,11 @@ pub struct MpdPlugin;
 
 impl Plugin for MpdPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(First, mpd_client_updates_system.run_if(resource_exists::<MpdClient>));
+        app.add_systems(
+            First,
+            (mpd_client_updates_system, mpd_update_album_art_system)
+                .run_if(resource_exists::<MpdClient>),
+        );
     }
 }
 
@@ -51,18 +55,24 @@ pub struct MpdPlayerState {
 }
 
 /// Info about the current track.
-#[derive(Resource, Debug, PartialEq)]
+#[derive(Component, Debug, PartialEq)]
 pub struct MpdCurrentTrack {
-    pub track: MpdTrack,
     pub cur_time: Duration,
     pub total_time: Duration,
     pub state: PlayState,
 }
 
+/// Album art of the current track.
+#[derive(Component, Debug, PartialEq)]
+pub struct MpdAlbumArt {
+    pub data: Vec<u8>,
+}
+
 /// Song in MPD database.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Component, Debug, PartialEq, Eq)]
 pub struct MpdTrack {
     pub id: SongId,
+    pub url: String,
     pub title: String,
     pub album: String,
     pub artists: Vec<String>,
@@ -72,6 +82,7 @@ impl MpdTrack {
     fn from_song_in_queue(song: SongInQueue) -> Self {
         Self {
             id: song.id,
+            url: song.song.url.clone(),
             title: song.song.title().unwrap_or("none").to_owned(),
             album: song.song.album().unwrap_or("none").to_owned(),
             artists: song.song.artists().into_iter().cloned().collect(),
@@ -129,15 +140,13 @@ fn mpd_client_updates_system(
             consume: status.consume,
         };
 
-        let current_track = if let Some((_, _current_song_id)) = status.current_song {
+        let current_track_bundle = if let Some((_, _current_song_id)) = status.current_song {
             let current_song = client.command(commands::CurrentSong).await.unwrap();
             match (current_song, status.elapsed, status.duration) {
-                (Some(song), Some(cur_time), Some(total_time)) => Some(MpdCurrentTrack {
-                    track: MpdTrack::from_song_in_queue(song),
-                    cur_time,
-                    total_time,
-                    state: status.state,
-                }),
+                (Some(song), Some(cur_time), Some(total_time)) => Some((
+                    MpdTrack::from_song_in_queue(song),
+                    MpdCurrentTrack { cur_time, total_time, state: status.state },
+                )),
                 _ => None,
             }
         } else {
@@ -148,15 +157,69 @@ fn mpd_client_updates_system(
             if ctx.world.get_resource() != Some(&player_state) {
                 ctx.world.insert_resource(player_state);
             }
-            match current_track {
-                Some(track) if Some(&track) != ctx.world.get_resource() => {
-                    ctx.world.insert_resource(track);
-                },
-                None => {
-                    ctx.world.remove_resource::<MpdCurrentTrack>();
-                },
-                _ => {},
+
+            if let Some((new_track, new_current)) = current_track_bundle {
+                let mut current_track_query =
+                    ctx.world.query::<(Entity, &MpdTrack, &MpdCurrentTrack)>();
+                let (entity, update_track, update_current) =
+                    match current_track_query.get_single(&ctx.world) {
+                        Ok((entity, track, current)) => {
+                            (Some(entity), &new_track != track, &new_current != current)
+                        },
+                        Err(_) => (None, true, true),
+                    };
+
+                if !update_track && !update_current {
+                    return;
+                }
+
+                let entity = entity.unwrap_or_else(|| ctx.world.spawn_empty().id());
+                let mut entity_mut = ctx.world.entity_mut(entity);
+                if update_track {
+                    entity_mut.insert(new_track);
+                }
+                if update_current {
+                    entity_mut.insert(new_current);
+                }
+            } else {
+                let mut current_track_query =
+                    ctx.world.query_filtered::<Entity, With<MpdCurrentTrack>>();
+                let Ok(entity) = current_track_query.get_single(&ctx.world) else {
+                    return;
+                };
+                ctx.world.despawn(entity);
             }
+        })
+        .await;
+    });
+}
+
+/// System to update album art of the current track.
+fn mpd_update_album_art_system(
+    client: Res<MpdClient>,
+    runtime: ResMut<TokioTasksRuntime>,
+    current_track_query: Query<(Entity, &MpdTrack), (With<MpdCurrentTrack>, Changed<MpdTrack>)>,
+) {
+    let Ok((entity, track)) = current_track_query.get_single() else {
+        return;
+    };
+
+    let client = client.client.clone();
+    let url = track.url.clone();
+    runtime.spawn_background_task(move |mut ctx| async move {
+        let Some((data, _)) = client
+            .album_art(&url)
+            .await
+            .inspect_err(|err| error!("Error getting an album art for '{url}': {err}"))
+            .ok()
+            .flatten()
+        else {
+            return;
+        };
+
+        ctx.run_on_main_thread(move |ctx| {
+            let data = data.freeze().into();
+            ctx.world.entity_mut(entity).insert(MpdAlbumArt { data });
         })
         .await;
     });

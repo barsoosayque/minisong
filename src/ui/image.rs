@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use bevy::prelude::*;
 use ratatui_image::{picker::Picker, protocol::StatefulProtocol, StatefulImage};
 
@@ -12,15 +10,20 @@ impl Plugin for ImagePlugin {
     }
 }
 
-#[derive(Component, Default, Clone)]
+#[derive(Component)]
 pub struct Image {
-    buffer: Vec<u8>,
-    image: Option<Arc<dyn StatefulProtocol>>,
+    image: Box<dyn StatefulProtocol>,
 }
 
 impl Image {
-    pub fn new(buffer: Vec<u8>) -> Self {
-        Self { buffer, ..default() }
+    pub fn try_new(buffer: Vec<u8>) -> anyhow::Result<Self> {
+        let mut picker = Picker::from_termios().unwrap();
+        // alacritty doesn't work well with guessing
+        // picker.guess_protocol();
+
+        let dyn_image = image::load_from_memory(&buffer)?;
+        let image = Box::from(picker.new_resize_protocol(dyn_image));
+        Ok(Self { image })
     }
 }
 
@@ -28,20 +31,10 @@ fn image_draw_system(In(mut ctx): In<WidgetDrawContext>, mut data_query: Query<&
     let Ok(mut data) = data_query.get_mut(ctx.entity()) else {
         return;
     };
-    let Image { buffer, image } = data.as_mut();
+    let Image { image } = data.as_mut();
 
-    if image.is_none() {
-        let mut picker = Picker::from_termios().unwrap();
-        picker.guess_protocol();
-
-        let dyn_image = image::load_from_memory(&buffer).unwrap();
-        *image = Some(Arc::from(picker.new_resize_protocol(dyn_image)));
-    }
-
-    ctx.draw(|_frame, _rect| {
-        let _widget = StatefulImage::new(None);
-        todo!()
-        // let image = Box::from(image)
-        // frame.render_stateful_widget(widget, rect, &mut image);
+    ctx.draw(|frame, rect| {
+        let widget = StatefulImage::new(None);
+        frame.render_stateful_widget(widget, rect, image);
     });
 }

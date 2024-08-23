@@ -1,10 +1,11 @@
 use std::{fmt::Display, time::Duration};
 
 use crate::{
-    mpd::MpdCurrentTrack,
-    ui::{Align, Block, Throbber, WidgetAppExt, WidgetBundle, WidgetDrawContext},
+    mpd::{MpdAlbumArt, MpdCurrentTrack, MpdTrack},
+    ui::{Align, Block, Image, Throbber, WidgetAppExt, WidgetBundle, WidgetDrawContext},
 };
 use bevy::prelude::*;
+use bevy_tokio_tasks::TokioTasksRuntime;
 use chrono::Timelike;
 use mpd_client::responses::PlayState;
 use ratatui::{
@@ -22,15 +23,22 @@ pub struct ClientStatePlugin;
 
 impl Plugin for ClientStatePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(AppState::Client), client_startup_system);
+        app.add_systems(OnEnter(AppState::Client), client_startup_system).add_systems(
+            Update,
+            client_current_track_album_art_update_system.run_if(in_state(AppState::Client)),
+        );
 
-        app.register_widget::<CurrentTrack, _>(current_track_draw_system);
+        app.register_widget::<CurrentTrackInfo, _>(current_track_draw_system);
     }
 }
 
 /// Tag for the current track playback widget.
 #[derive(Component, Default, Clone, Copy)]
-pub struct CurrentTrack;
+pub struct CurrentTrackInfo;
+
+/// Tag for the current track album art widget.
+#[derive(Component, Default, Clone, Copy)]
+pub struct CurrentTrackAlbumArt;
 
 /// System to spawn all client UI.
 pub fn client_startup_system(mut commands: Commands) {
@@ -38,12 +46,12 @@ pub fn client_startup_system(mut commands: Commands) {
         .spawn(WidgetBundle::<Block>::new().content_direction(Direction::Horizontal))
         .with_children(|children| {
             children.spawn(
-                WidgetBundle::from(Throbber::new("Loading album art.."))
+                WidgetBundle::<CurrentTrackAlbumArt>::new()
                     .align_horizontal(Align::Center)
                     .align_vertical(Align::Center)
                     .constraint(Constraint::Percentage(50)),
             );
-            children.spawn((WidgetBundle::<CurrentTrack>::new()
+            children.spawn((WidgetBundle::<CurrentTrackInfo>::new()
                 .align_horizontal(Align::Center)
                 .align_vertical(Align::Center)
                 .constraint(Constraint::Percentage(50)),));
@@ -53,11 +61,12 @@ pub fn client_startup_system(mut commands: Commands) {
 /// System to draw current track info.
 fn current_track_draw_system(
     In(mut ctx): In<WidgetDrawContext>,
-    current_track: Option<Res<MpdCurrentTrack>>,
+    current_track_query: Query<(&MpdCurrentTrack, &MpdTrack)>,
 ) {
+    let current_track = current_track_query.get_single().ok();
     let height = if current_track.is_some() { 4 } else { 1 };
     ctx.draw_sized((u16::MAX, height), |frame, rect| {
-        let Some(current_track) = current_track else {
+        let Some((current, track)) = current_track else {
             frame.render_widget(
                 text![span![Style::new().italic(); "No track is playing"]].centered(),
                 rect,
@@ -67,17 +76,16 @@ fn current_track_draw_system(
 
         let [title_area, other_info_area, progress_area] = vertical![==2, ==1, ==1].areas(rect);
 
-        let title_widget = text![span![Style::new().bold(); current_track.track.title]];
+        let title_widget = text![span![Style::new().bold(); track.title]];
         frame.render_widget(title_widget, title_area);
 
         let [album_area, artists_area] = horizontal![==50%, ==50%].areas(other_info_area);
 
-        let album_widget = text![span![Style::new().italic(); current_track.track.album]];
+        let album_widget = text![span![Style::new().italic(); track.album]];
         frame.render_widget(album_widget, album_area);
 
         let artists_widget =
-            text![span![Style::new().italic(); current_track.track.artists.join(", ")]]
-                .right_aligned();
+            text![span![Style::new().italic(); track.artists.join(", ")]].right_aligned();
         frame.render_widget(artists_widget, artists_area);
 
         let time_widget = {
@@ -91,16 +99,15 @@ fn current_track_draw_system(
                 }
             }
 
-            let current_time = format_time(current_track.cur_time);
-            let total_time = format_time(current_track.total_time);
+            let current_time = format_time(current.cur_time);
+            let total_time = format_time(current.total_time);
 
             text![span![Style::new().italic().fg(Color::Yellow); " {current_time}/{total_time}"]]
         };
 
         let progress_bar_widget = {
-            let ratio = (current_track.cur_time.as_secs_f64()
-                / current_track.total_time.as_secs_f64())
-            .clamp(0.0, 1.0);
+            let ratio =
+                (current.cur_time.as_secs_f64() / current.total_time.as_secs_f64()).clamp(0.0, 1.0);
 
             LineGauge::default()
                 .filled_style(Style::default().fg(Color::Magenta))
@@ -108,7 +115,7 @@ fn current_track_draw_system(
                 .line_set(symbols::line::THICK)
                 .label(span![
                     Style::new().fg(Color::Green);
-                    match current_track.state {
+                    match current.state {
                         PlayState::Stopped => "⏹",
                         PlayState::Playing => "⏵",
                         PlayState::Paused => "⏸",
@@ -121,6 +128,43 @@ fn current_track_draw_system(
 
         frame.render_widget(progress_bar_widget, progress_bar_area);
         frame.render_widget(time_widget, time_area);
+    });
+}
+
+/// System to draw current track album art.
+fn client_current_track_album_art_update_system(
+    mut commands: Commands,
+    widget_query: Query<(Entity, Ref<CurrentTrackAlbumArt>)>,
+    runtime: ResMut<TokioTasksRuntime>,
+    album_art_query: Query<&MpdAlbumArt, (With<MpdCurrentTrack>, Changed<MpdAlbumArt>)>,
+    mut removed_album_art: RemovedComponents<MpdAlbumArt>,
+) {
+    let Ok((widget_entity, widget)) = widget_query.get_single() else {
+        return;
+    };
+
+    if widget.is_added() || removed_album_art.read().next().is_some() {
+        commands
+            .entity(widget_entity)
+            .remove::<Image>()
+            .insert(Throbber::new("Loading album art..."));
+    }
+
+    let Ok(album_art) = album_art_query.get_single() else {
+        return;
+    };
+
+    let buffer = album_art.data.clone();
+    runtime.spawn_background_task(move |mut ctx| async move {
+        let image = Image::try_new(buffer).unwrap();
+        ctx.run_on_main_thread(move |ctx| {
+            let Some(mut entity_mut) = ctx.world.get_entity_mut(widget_entity) else {
+                return;
+            };
+
+            entity_mut.remove::<Throbber>().insert(image);
+        })
+        .await;
     });
 }
 
