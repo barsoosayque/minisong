@@ -1,25 +1,29 @@
 [package]
-name = "minisong"
-version = "0.1.0"
-edition = "2021"
+name        = "minisong"
+version     = "0.1.0"
+edition     = "2021"
+description = "Tiny MPD client for the terminal"
+license     = "MIT"
+repository  = "https://github.com/barsoosayque/minisong"
+homepage    = "https://github.com/barsoosayque/minisong"
+readme      = "README.adoc"
+keywords    = ["audio", "client", "mpd", "music", "terminal"]
+authors     = ["barsoosayque <shtoshich@gmail.com>"]
 
 [dependencies]
-bevy = { version = "0.14.1", default-features = false, features = [
-  "bevy_state"
-]}
-bevy-tokio-tasks = "0.14.0"
-anyhow = "1.0.86"
-mpd_client = "1.4.1"
-crossterm = "0.28.1"
-ratatui = "0.27.0"
-ratatui-image = "1.0.5"
-throbber-widgets-tui = "0.6.0"
-tokio = { version = "1.36.0", features = ["rt", "macros", "rt-multi-thread", "time", "signal"] }
-clap = { version = "4.5.13", features = ["derive"] }
-image = "0.25"
-strum = "0.26.3"
-tracing-error = "0.2.0"
-tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-ratatui-macros = "0.4.3"
-chrono = "0.4.38"
+chrono             = "0.4.42"
+clap               = { version = "4.5.48", features = ["derive"] }
+color-eyre         = "0.6.5"
+coro-router        = { git = "https://github.com/Blushyes/coro-router.git" }
+eyre               = "0.6.12"
+image              = "0.25"
+iocraft            = "0.7.13"
+mpd                = "0.1.0"
+smol               = "2.0.2"
+strum              = "0.27.2"
+tracing            = "0.1.41"
+tracing-error      = "0.2.1"
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
+
+[patch.crates-io]
+iocraft = { git = "https://github.com/barsoosayque/iocraft", branch = "main" }

@@ -1,6 +1,7 @@
 = Minisong
 
-Small terminal MPD client built on top of bevy and ratatui.
+Tiny MPD client for the terminal.
+Work in progress !
 
 == Building & running
 
@@ -18,7 +19,7 @@ cargo run -- --port $MPD_PORT
 ** [ ] Help page
 * [ ] Playback tab
 ** [x] Info about current song
-** [x] Album art of current song
+** [ ] Album art of current song
 ** [ ] General MPD state info (volume, enabled modes)
 * [ ] Queue tab
 ** [ ] Table with configurable columns about songs in the queue
