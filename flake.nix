@@ -38,6 +38,7 @@
           clippy
           rust-analyzer-unwrapped
           cargo-edit
+          taplo
         ];
 
         # Autofetch project info from Cargo
