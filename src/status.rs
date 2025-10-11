@@ -65,24 +65,29 @@ pub fn Status(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
         ) {
             #(match &*current.read() {
                 Some(song) => element!{
-                    Fragment {
+                    View(
+                        width: Percent(66.0),
+                        height: Percent(100.0),
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
+                        flex_direction: FlexDirection::Column,
+                    ) {
                         Text(color: Color::Blue, weight: Weight::Bold, content: &song.artist)
                         Text(color: Color::DarkBlue, decoration: TextDecoration::Underline, content: &song.title)
                         Text()
-                        View(width: Percent(66.0), flex_direction: FlexDirection::Column) {
-                            ProgressBar(
-                                amount: song.elapsed.as_seconds_f32() / song.duration.as_seconds_f32(),
-                                handler: change_postion,
-                            )
-                            View(width: Percent(100.0), justify_content: JustifyContent::SpaceBetween) {
-                                Duration(weight: Weight::Light, duration: song.elapsed)
-                                Duration(weight: Weight::Light, duration: song.duration)
-                            }
+                        ProgressBar(
+                            amount: song.elapsed.as_seconds_f32() / song.duration.as_seconds_f32(),
+                            handler: change_postion,
+                        )
+                        View(width: Percent(100.0), justify_content: JustifyContent::SpaceBetween) {
+                            Duration(weight: Weight::Light, duration: song.elapsed)
+                            Duration(weight: Weight::Light, duration: song.duration)
                         }
                     }
                 }.into_any(),
                 None => element!{
-                    Text(content: "Nothing playing...")
+                    Text(content: "Nothing is playing...")
                 }.into_any(),
             })
         }

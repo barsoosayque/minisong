@@ -32,7 +32,9 @@ pub fn ProgressBar<'a>(
     props: &mut ProgressBarProps,
 ) -> impl Into<AnyElement<'a>> {
     let rect = hooks.use_component_rect();
+    let rect = rect.get();
     let width = rect.right - rect.left;
+    let (full_width, _) = hooks.use_terminal_size();
 
     hooks.use_local_terminal_events({
         let mut handler = props.handler.take();
@@ -49,10 +51,10 @@ pub fn ProgressBar<'a>(
     element! {
         View(width: Percent(100.0), height: 1, overflow: Overflow::Hidden) {
             View(position: Position::Absolute) {
-                Text(content: "·".repeat(width as usize), weight: Weight::Light)
+                Text(content: "·".repeat(full_width as usize), weight: Weight::Light)
             }
             View(width: Percent(100.0 * props.amount), position: Position::Absolute) {
-                Text(content: "—".repeat(width as usize), color: Color::Magenta)
+                Text(content: "—".repeat(full_width as usize), color: Color::Magenta)
             }
         }
     }
