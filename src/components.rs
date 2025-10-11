@@ -31,12 +31,12 @@ pub fn ProgressBar(mut hooks: Hooks, props: &ProgressBarProps) -> impl Into<AnyE
     let amount = props.amount.clamp(0.0, 1.0);
 
     element! {
-        View(width: Percent(100.0), height: 1, flex_direction: FlexDirection::Row) {
-            View(width: Percent(100.0 * amount), overflow: Overflow::Hidden) {
-                Text(content: "—".repeat(width as usize), color: Color::Magenta)
-            }
-            View(width: Percent(100.0 - 100.0 * amount), overflow: Overflow::Hidden) {
+        View(width: Percent(100.0), height: 1, flex_direction: FlexDirection::Row, overflow: Overflow::Hidden) {
+            View(position: Position::Absolute) {
                 Text(content: "·".repeat(width as usize), weight: Weight::Light)
+            }
+            View(width: Percent(100.0 * amount), position: Position::Absolute) {
+                Text(content: "—".repeat(width as usize), color: Color::Magenta)
             }
         }
     }

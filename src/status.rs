@@ -37,7 +37,7 @@ pub fn Status(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
                 current.set(None);
             }
 
-            smol::Timer::after(std::time::Duration::from_millis(100)).await;
+            smol::Timer::after(std::time::Duration::from_millis(1000)).await;
         }
     });
 
