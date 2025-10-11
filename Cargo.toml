@@ -26,4 +26,4 @@ tracing-error      = "0.2.1"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 
 [patch.crates-io]
-iocraft = { git = "https://github.com/barsoosayque/iocraft", branch = "main" }
+iocraft = { git = "https://github.com/barsoosayque/iocraft", branch = "use-rect" }

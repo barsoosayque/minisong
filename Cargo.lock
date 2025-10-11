@@ -982,8 +982,8 @@ dependencies = [
 
 [[package]]
 name = "iocraft"
-version = "0.7.13"
-source = "git+https://github.com/barsoosayque/iocraft?branch=main#dac602e8b7489a2c2d63e4ca7222f8fc99e23ac2"
+version = "0.7.14"
+source = "git+https://github.com/barsoosayque/iocraft?branch=use-rect#f4b0a027918458c904278d7fb0e1e9edd386b635"
 dependencies = [
  "any_key",
  "bitflags 2.9.4",
@@ -998,7 +998,7 @@ dependencies = [
 [[package]]
 name = "iocraft-macros"
 version = "0.2.3"
-source = "git+https://github.com/barsoosayque/iocraft?branch=main#dac602e8b7489a2c2d63e4ca7222f8fc99e23ac2"
+source = "git+https://github.com/barsoosayque/iocraft?branch=use-rect#f4b0a027918458c904278d7fb0e1e9edd386b635"
 dependencies = [
  "proc-macro2",
  "quote",

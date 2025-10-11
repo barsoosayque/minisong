@@ -20,22 +20,38 @@ pub fn Spinner(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
     }
 }
 
-#[derive(Debug, Default, Props)]
+#[derive(Default, Props)]
 pub struct ProgressBarProps {
     pub amount: f32,
+    pub handler: Handler<'static, f32>,
 }
 
 #[component]
-pub fn ProgressBar(mut hooks: Hooks, props: &ProgressBarProps) -> impl Into<AnyElement<'static>> {
-    let (width, _) = hooks.use_terminal_size();
-    let amount = props.amount.clamp(0.0, 1.0);
+pub fn ProgressBar<'a>(
+    mut hooks: Hooks,
+    props: &mut ProgressBarProps,
+) -> impl Into<AnyElement<'a>> {
+    let rect = hooks.use_component_rect();
+    let width = rect.right - rect.left;
+
+    hooks.use_local_terminal_events({
+        let mut handler = props.handler.take();
+        move |event| match event {
+            TerminalEvent::FullscreenMouse(FullscreenMouseEvent {
+                column,
+                kind: MouseEventKind::Down(_),
+                ..
+            }) => handler(column as f32 / width as f32),
+            _ => {},
+        }
+    });
 
     element! {
-        View(width: Percent(100.0), height: 1, flex_direction: FlexDirection::Row, overflow: Overflow::Hidden) {
+        View(width: Percent(100.0), height: 1, overflow: Overflow::Hidden) {
             View(position: Position::Absolute) {
                 Text(content: "·".repeat(width as usize), weight: Weight::Light)
             }
-            View(width: Percent(100.0 * amount), position: Position::Absolute) {
+            View(width: Percent(100.0 * props.amount), position: Position::Absolute) {
                 Text(content: "—".repeat(width as usize), color: Color::Magenta)
             }
         }

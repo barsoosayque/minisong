@@ -21,23 +21,36 @@ pub fn Status(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
     let mpd = ctx.mpd.clone();
     hooks.use_future(async move {
         loop {
-            let mut client = mpd.client().await;
-            let song = client.currentsong().unwrap();
-            let status = client.status().unwrap();
-
-            if let Some(((song, elapsed), duration)) = song.zip(status.elapsed).zip(status.duration)
             {
-                current.set(Some(CurrentSong {
-                    artist: song.artist.unwrap_or_default(),
-                    title: song.title.unwrap_or_default(),
-                    elapsed: chrono::Duration::from_std(elapsed).unwrap(),
-                    duration: chrono::Duration::from_std(duration).unwrap(),
-                }));
-            } else {
-                current.set(None);
+                let mut client = mpd.client().await;
+                let song = client.currentsong().unwrap();
+                let status = client.status().unwrap();
+
+                if let Some(((song, elapsed), duration)) =
+                    song.zip(status.elapsed).zip(status.duration)
+                {
+                    current.set(Some(CurrentSong {
+                        artist: song.artist.unwrap_or_default(),
+                        title: song.title.unwrap_or_default(),
+                        elapsed: chrono::Duration::from_std(elapsed).unwrap(),
+                        duration: chrono::Duration::from_std(duration).unwrap(),
+                    }));
+                } else {
+                    current.set(None);
+                }
             }
 
             smol::Timer::after(std::time::Duration::from_millis(1000)).await;
+        }
+    });
+
+    let mpd = ctx.mpd.clone();
+    let change_postion = hooks.use_async_handler(move |amount: f32| {
+        let mpd = mpd.clone();
+        let duration = current.read().as_ref().map(|current| current.duration).unwrap_or_default();
+        async move {
+            let mut client = mpd.client().await;
+            client.rewind((duration.as_seconds_f32() * amount) as f64).unwrap();
         }
     });
 
@@ -56,12 +69,15 @@ pub fn Status(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
                         Text(color: Color::Blue, weight: Weight::Bold, content: &song.artist)
                         Text(color: Color::DarkBlue, decoration: TextDecoration::Underline, content: &song.title)
                         Text()
-                        View(width: Percent(50.0)) {
-                            ProgressBar(amount: song.elapsed.as_seconds_f32() / song.duration.as_seconds_f32())
-                        }
-                        View(width: Percent(50.0), justify_content: JustifyContent::SpaceBetween) {
-                            Duration(weight: Weight::Light, duration: song.elapsed)
-                            Duration(weight: Weight::Light, duration: song.duration)
+                        View(width: Percent(66.0), flex_direction: FlexDirection::Column) {
+                            ProgressBar(
+                                amount: song.elapsed.as_seconds_f32() / song.duration.as_seconds_f32(),
+                                handler: change_postion,
+                            )
+                            View(width: Percent(100.0), justify_content: JustifyContent::SpaceBetween) {
+                                Duration(weight: Weight::Light, duration: song.elapsed)
+                                Duration(weight: Weight::Light, duration: song.duration)
+                            }
                         }
                     }
                 }.into_any(),
