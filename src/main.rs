@@ -4,9 +4,10 @@ use tracing_error::ErrorLayer;
 use tracing_subscriber::{self, layer::SubscriberExt, util::SubscriberInitExt};
 
 mod app;
+mod bar;
 mod components;
+mod current_song;
 mod mpd;
-mod status;
 mod task;
 
 static PANIC: OnceLock<String> = OnceLock::new();

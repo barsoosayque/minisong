@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
 use crate::{
+    bar,
     components::Spinner,
+    current_song,
     mpd::MpdClient,
-    status,
     task::{TaskStatus, UseTask},
 };
 use clap::Parser;
@@ -78,8 +79,8 @@ pub fn Minisong(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
         TaskStatus::Done(mpd) => element! {
             ContextProvider(value: Context::owned(AppContext { mpd: mpd.clone() })) {
                 View(width, height, flex_direction: FlexDirection::Column) {
-                    status::PlayerStatusBar()
-                    status::CurrentSongScreen()
+                    bar::PlayerStatusBar()
+                    current_song::CurrentSongScreen()
                 }
             }
         }

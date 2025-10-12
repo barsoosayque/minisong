@@ -5,6 +5,8 @@ use crate::{
     components::{Duration, ProgressBar},
 };
 
+/// State for [`CurrentSongScreen`].
+#[derive(Debug)]
 struct CurrentSong {
     artist: String,
     title: String,
@@ -13,7 +15,9 @@ struct CurrentSong {
     state: mpd::State,
 }
 
-pub enum Action {
+/// Actions for [`CurrentSongScreen`].
+#[derive(Debug, Clone, Copy)]
+enum Action {
     Rewind(f32),
     Next,
     Prev,
@@ -80,7 +84,7 @@ pub fn CurrentSongScreen(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
         }
     });
     let mpd = ctx.mpd.clone();
-    let mut key_action = hooks.use_async_handler(move |action: Action| {
+    let action = hooks.use_async_handler(move |action: Action| {
         let mpd = mpd.clone();
         async move {
             let mut client = mpd.client_with_notify().await;
@@ -106,12 +110,12 @@ pub fn CurrentSongScreen(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
 
     hooks.use_terminal_events(move |event| match event {
         TerminalEvent::Key(KeyEvent { code, kind: KeyEventKind::Press, .. }) => match code {
-            KeyCode::Char('P') => (key_action)(Action::Stop),
-            KeyCode::Char('p') => (key_action)(Action::Toggle),
-            KeyCode::Char('>') => (key_action)(Action::Next),
-            KeyCode::Char('<') => (key_action)(Action::Prev),
-            KeyCode::Left => (key_action)(Action::Rewind(-5.0)),
-            KeyCode::Right => (key_action)(Action::Rewind(5.0)),
+            KeyCode::Char('P') => (action)(Action::Stop),
+            KeyCode::Char('p') => (action)(Action::Toggle),
+            KeyCode::Char('>') => (action)(Action::Next),
+            KeyCode::Char('<') => (action)(Action::Prev),
+            KeyCode::Left => (action)(Action::Rewind(-5.0)),
+            KeyCode::Right => (action)(Action::Rewind(5.0)),
             _ => {},
         },
         _ => {},
@@ -160,79 +164,6 @@ pub fn CurrentSongScreen(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
                     Text(content: "Nothing is playing...")
                 }.into_any(),
             })
-        }
-    }
-}
-
-#[derive(Default)]
-struct MpdStatus {
-    volume: f32,
-    queue: (usize, usize),
-    repeat: bool,
-    random: bool,
-    single: bool,
-    consume: bool,
-}
-
-#[component]
-pub fn PlayerStatusBar(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
-    let ctx = hooks.use_context::<AppContext>();
-
-    let mut mpd_status: State<MpdStatus> = hooks.use_state_default();
-    let mut mpd = ctx.mpd.clone();
-    hooks.use_future(async move {
-        loop {
-            {
-                let mut client = mpd.client().await;
-                let status = client.status().unwrap();
-                mpd_status.set(MpdStatus {
-                    volume: status.volume as f32 / 100.0,
-                    queue: (
-                        status.song.map(|song| song.pos as usize + 1).unwrap_or_default(),
-                        status.queue_len as usize,
-                    ),
-                    repeat: status.repeat,
-                    random: status.random,
-                    single: status.single,
-                    consume: status.consume,
-                });
-            }
-
-            mpd.wait_an_update().await;
-        }
-    });
-
-    element! {
-        View(
-            width: Percent(100.0),
-            height: 1,
-            padding_left: 1,
-            padding_right: 1,
-            flex_direction: FlexDirection::Row,
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::SpaceBetween,
-        ) {
-            Text(content: {
-                let volume = mpd_status.read().volume * 100.0;
-                let icon = if volume <= 33.0 {
-                    "🔈"
-                } else if volume <= 66.0 {
-                    "🔉"
-                } else {
-                    "🔊"
-                };
-                format!("{icon} {volume:.0}%")
-            })
-            Text(content: format!("≡ {} / {}", mpd_status.read().queue.0, mpd_status.read().queue.1))
-            View(
-                flex_direction: FlexDirection::Row,
-                gap: 1,
-            ) {
-                Text(content: if mpd_status.read().repeat { "🔁" } else { "·" })
-                Text(content: if mpd_status.read().random { "🔀" } else { "·" })
-                Text(content: if mpd_status.read().single { "🔂" } else { "·" })
-                Text(content: if mpd_status.read().consume { "🗑️" } else { "·" })
-            }
         }
     }
 }
