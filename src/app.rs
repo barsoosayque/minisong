@@ -77,8 +77,9 @@ pub fn Minisong(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
         TaskStatus::Error(err) => panic!("Connecting to MPD: {}", err),
         TaskStatus::Done(mpd) => element! {
             ContextProvider(value: Context::owned(AppContext { mpd: mpd.clone() })) {
-                View(width, height) {
-                    status::Status()
+                View(width, height, flex_direction: FlexDirection::Column) {
+                    status::PlayerStatusBar()
+                    status::CurrentSongScreen()
                 }
             }
         }

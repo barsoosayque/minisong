@@ -20,7 +20,7 @@ cargo run -- --port $MPD_PORT
 * [ ] Playback tab
 ** [x] Info about current song
 ** [ ] Album art of current song
-** [ ] General MPD state info (volume, enabled modes)
+** [x] General MPD state info (volume, enabled modes)
 * [ ] Queue tab
 ** [ ] Table with configurable columns about songs in the queue
 ** [ ] Selectable songs, selected song can be played or removed from the queue
