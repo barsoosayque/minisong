@@ -10,7 +10,7 @@ struct CurrentSong {
     title: String,
     elapsed: chrono::Duration,
     duration: chrono::Duration,
-    is_paused: bool,
+    state: mpd::State,
 }
 
 pub enum Action {
@@ -18,6 +18,7 @@ pub enum Action {
     Next,
     Prev,
     Toggle,
+    Stop,
 }
 
 /// Current MPD status screen.
@@ -25,7 +26,7 @@ pub enum Action {
 pub fn Status(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
     let ctx = hooks.use_context::<AppContext>();
 
-    let mut current = hooks.use_state(|| None);
+    let mut current: State<Option<CurrentSong>> = hooks.use_state(|| None);
     let mut mpd = ctx.mpd.clone();
     hooks.use_future(async move {
         loop {
@@ -34,15 +35,23 @@ pub fn Status(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
                 let song = client.currentsong().unwrap();
                 let status = client.status().unwrap();
 
-                if let Some(((song, elapsed), duration)) =
-                    song.zip(status.elapsed).zip(status.duration)
-                {
+                if let Some(song) = song {
+                    let current_elapsed = current.read().as_ref().map(|current| current.elapsed);
+                    let current_duration = current.read().as_ref().map(|current| current.duration);
                     current.set(Some(CurrentSong {
                         artist: song.artist.unwrap_or_default(),
                         title: song.title.unwrap_or_default(),
-                        elapsed: chrono::Duration::from_std(elapsed).unwrap(),
-                        duration: chrono::Duration::from_std(duration).unwrap(),
-                        is_paused: status.state != mpd::State::Play,
+                        elapsed: status
+                            .elapsed
+                            .and_then(|elapsed| chrono::Duration::from_std(elapsed).ok())
+                            .or(current_elapsed)
+                            .unwrap_or_default(),
+                        duration: status
+                            .duration
+                            .and_then(|duration| chrono::Duration::from_std(duration).ok())
+                            .or(current_duration)
+                            .unwrap_or_default(),
+                        state: status.state,
                     }));
                 } else {
                     current.set(None);
@@ -83,13 +92,21 @@ pub fn Status(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
                 },
                 Action::Next => client.next().unwrap(),
                 Action::Prev => client.prev().unwrap(),
-                Action::Toggle => client.toggle_pause().unwrap(),
+                Action::Toggle => {
+                    if matches!(client.status(), Ok(mpd::Status { state: mpd::State::Stop, .. })) {
+                        client.play().unwrap()
+                    } else {
+                        client.toggle_pause().unwrap()
+                    }
+                },
+                Action::Stop => client.stop().unwrap(),
             }
         }
     });
 
     hooks.use_terminal_events(move |event| match event {
         TerminalEvent::Key(KeyEvent { code, kind: KeyEventKind::Press, .. }) => match code {
+            KeyCode::Char('P') => (key_action)(Action::Stop),
             KeyCode::Char('p') => (key_action)(Action::Toggle),
             KeyCode::Char('>') => (key_action)(Action::Next),
             KeyCode::Char('<') => (key_action)(Action::Prev),
@@ -128,7 +145,11 @@ pub fn Status(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
                         )
                         View(width: Percent(100.0), justify_content: JustifyContent::SpaceBetween) {
                             View(gap: 1) {
-                                Text(weight: Weight::Light, content: if song.is_paused { "⏸" } else { "▶" })
+                                Text(weight: Weight::Light, content: match song.state {
+                                    mpd::State::Pause => "️️⏸ ",
+                                    mpd::State::Play => "▶",
+                                    mpd::State::Stop => "⏹"
+                                })
                                 Duration(weight: Weight::Light, duration: song.elapsed)
                             }
                             Duration(weight: Weight::Light, duration: song.duration)
