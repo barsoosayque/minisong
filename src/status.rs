@@ -10,6 +10,14 @@ struct CurrentSong {
     title: String,
     elapsed: chrono::Duration,
     duration: chrono::Duration,
+    is_paused: bool,
+}
+
+pub enum Action {
+    Rewind(f32),
+    Next,
+    Prev,
+    Toggle,
 }
 
 /// Current MPD status screen.
@@ -34,6 +42,7 @@ pub fn Status(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
                         title: song.title.unwrap_or_default(),
                         elapsed: chrono::Duration::from_std(elapsed).unwrap(),
                         duration: chrono::Duration::from_std(duration).unwrap(),
+                        is_paused: status.state != mpd::State::Play,
                     }));
                 } else {
                     current.set(None);
@@ -62,19 +71,30 @@ pub fn Status(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
         }
     });
     let mpd = ctx.mpd.clone();
-    let mut change_postion_by = hooks.use_async_handler(move |amount: f32| {
+    let mut key_action = hooks.use_async_handler(move |action: Action| {
         let mpd = mpd.clone();
-        let elapsed = current.read().as_ref().map(|current| current.elapsed).unwrap_or_default();
         async move {
             let mut client = mpd.client_with_notify().await;
-            client.rewind((elapsed.as_seconds_f32() + amount) as f64).unwrap();
+            match action {
+                Action::Rewind(amount) => {
+                    let elapsed =
+                        current.read().as_ref().map(|current| current.elapsed).unwrap_or_default();
+                    client.rewind((elapsed.as_seconds_f32() + amount) as f64).unwrap();
+                },
+                Action::Next => client.next().unwrap(),
+                Action::Prev => client.prev().unwrap(),
+                Action::Toggle => client.toggle_pause().unwrap(),
+            }
         }
     });
 
     hooks.use_terminal_events(move |event| match event {
         TerminalEvent::Key(KeyEvent { code, kind: KeyEventKind::Press, .. }) => match code {
-            KeyCode::Left => (change_postion_by)(-5.0),
-            KeyCode::Right => (change_postion_by)(5.0),
+            KeyCode::Char('p') => (key_action)(Action::Toggle),
+            KeyCode::Char('>') => (key_action)(Action::Next),
+            KeyCode::Char('<') => (key_action)(Action::Prev),
+            KeyCode::Left => (key_action)(Action::Rewind(-5.0)),
+            KeyCode::Right => (key_action)(Action::Rewind(5.0)),
             _ => {},
         },
         _ => {},
@@ -107,7 +127,10 @@ pub fn Status(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
                             handler: change_postion_to,
                         )
                         View(width: Percent(100.0), justify_content: JustifyContent::SpaceBetween) {
-                            Duration(weight: Weight::Light, duration: song.elapsed)
+                            View(gap: 1) {
+                                Text(weight: Weight::Light, content: if song.is_paused { "⏸" } else { "▶" })
+                                Duration(weight: Weight::Light, duration: song.elapsed)
+                            }
                             Duration(weight: Weight::Light, duration: song.duration)
                         }
                     }
