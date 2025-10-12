@@ -22,13 +22,13 @@ pub enum TaskStatus<T: Unpin + Send + Sync + 'static> {
 pub trait UseTask<T: Unpin + Send + Sync + 'static> {
     fn use_task<F>(&mut self, f: F) -> Task<T>
     where
-        F: Fn() -> eyre::Result<T> + Send + 'static;
+        F: FnOnce() -> eyre::Result<T> + Send + 'static;
 }
 
 impl<'a, T: Unpin + Send + Sync + 'static> UseTask<T> for Hooks<'_, '_> {
     fn use_task<F>(&mut self, f: F) -> Task<T>
     where
-        F: Fn() -> eyre::Result<T> + Send + 'static,
+        F: FnOnce() -> eyre::Result<T> + Send + 'static,
     {
         let mut state = self.use_state(|| TaskStatus::<T>::InProgress);
 

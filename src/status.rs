@@ -18,7 +18,7 @@ pub fn Status(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
     let ctx = hooks.use_context::<AppContext>();
 
     let mut current = hooks.use_state(|| None);
-    let mpd = ctx.mpd.clone();
+    let mut mpd = ctx.mpd.clone();
     hooks.use_future(async move {
         loop {
             {
@@ -40,18 +40,44 @@ pub fn Status(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
                 }
             }
 
-            smol::Timer::after(std::time::Duration::from_millis(1000)).await;
+            mpd.wait_an_update().await;
+        }
+    });
+
+    let mut mpd = ctx.mpd.clone();
+    hooks.use_future(async move {
+        loop {
+            smol::Timer::interval(std::time::Duration::from_millis(500)).await;
+            mpd.notify_update().await;
         }
     });
 
     let mpd = ctx.mpd.clone();
-    let change_postion = hooks.use_async_handler(move |amount: f32| {
+    let change_postion_to = hooks.use_async_handler(move |amount: f32| {
         let mpd = mpd.clone();
         let duration = current.read().as_ref().map(|current| current.duration).unwrap_or_default();
         async move {
-            let mut client = mpd.client().await;
+            let mut client = mpd.client_with_notify().await;
             client.rewind((duration.as_seconds_f32() * amount) as f64).unwrap();
         }
+    });
+    let mpd = ctx.mpd.clone();
+    let mut change_postion_by = hooks.use_async_handler(move |amount: f32| {
+        let mpd = mpd.clone();
+        let elapsed = current.read().as_ref().map(|current| current.elapsed).unwrap_or_default();
+        async move {
+            let mut client = mpd.client_with_notify().await;
+            client.rewind((elapsed.as_seconds_f32() + amount) as f64).unwrap();
+        }
+    });
+
+    hooks.use_terminal_events(move |event| match event {
+        TerminalEvent::Key(KeyEvent { code, kind: KeyEventKind::Press, .. }) => match code {
+            KeyCode::Left => (change_postion_by)(-5.0),
+            KeyCode::Right => (change_postion_by)(5.0),
+            _ => {},
+        },
+        _ => {},
     });
 
     element! {
@@ -78,7 +104,7 @@ pub fn Status(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
                         Text()
                         ProgressBar(
                             amount: song.elapsed.as_seconds_f32() / song.duration.as_seconds_f32(),
-                            handler: change_postion,
+                            handler: change_postion_to,
                         )
                         View(width: Percent(100.0), justify_content: JustifyContent::SpaceBetween) {
                             Duration(weight: Weight::Light, duration: song.elapsed)

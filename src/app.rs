@@ -21,19 +21,22 @@ pub struct Config {
     pub password: Option<String>,
 }
 
-pub type ConfigContext = Arc<Config>;
-
 /// Context for the whole app, set in [`Minisong`].
 #[derive(Debug)]
 pub struct AppContext {
     pub mpd: MpdClient,
 }
 
+#[derive(Debug, Clone)]
+struct RunContext {
+    config: Arc<Config>,
+}
+
 /// Main app entry point.
 pub async fn run() -> eyre::Result<()> {
     let config = Config::try_parse()?;
 
-    element!(ContextProvider(value: Context::owned(Arc::new(config))) {
+    element!(ContextProvider(value: Context::owned(RunContext { config: Arc::new(config) })) {
         Minisong()
     })
     .fullscreen()
@@ -64,9 +67,9 @@ pub fn Minisong(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
         system.exit();
     }
 
-    let config = hooks.use_context::<ConfigContext>().clone();
+    let ctx = hooks.use_context::<RunContext>().clone();
     let client_task = hooks.use_task(move || {
-        MpdClient::new((config.host.clone(), config.port), config.password.clone())
+        MpdClient::new((ctx.config.host.clone(), ctx.config.port), ctx.config.password.clone())
     });
 
     let status = client_task.status();
