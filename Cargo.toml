@@ -11,11 +11,10 @@ keywords    = ["audio", "client", "mpd", "music", "terminal"]
 authors     = ["barsoosayque <shtoshich@gmail.com>"]
 
 [dependencies]
-async-broadcast    = "0.7.2"
 chrono             = "0.4.42"
 clap               = { version = "4.5.48", features = ["derive"] }
 color-eyre         = "0.6.5"
-coro-router        = { git = "https://github.com/Blushyes/coro-router.git" }
+event-listener     = "5.4.1"
 eyre               = "0.6.12"
 image              = "0.25"
 iocraft            = "0.7.13"

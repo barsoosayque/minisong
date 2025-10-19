@@ -1,9 +1,10 @@
 use std::{
     net::ToSocketAddrs,
     ops::{Deref, DerefMut},
-    sync::Arc,
+    sync::{Arc, RwLock, RwLockWriteGuard},
 };
 
+use event_listener::Event;
 use mpd::Client;
 
 /// Connection to the MPD server and a point of MPD request's configuration.
@@ -11,9 +12,8 @@ use mpd::Client;
 /// Can be shared between threads and cloned, but uses RwLock inside to manage the client.
 #[derive(Debug, Clone)]
 pub struct MpdClient {
-    client: Arc<smol::lock::RwLock<Client>>,
-    notifier: async_broadcast::Sender<()>,
-    subscriber: async_broadcast::Receiver<()>,
+    client: Arc<RwLock<Client>>,
+    event: Arc<Event>,
 }
 
 impl MpdClient {
@@ -23,37 +23,35 @@ impl MpdClient {
             client.login(password.as_ref())?;
         }
 
-        let (mut notifier, subscriber) = async_broadcast::broadcast(4);
-        notifier.set_overflow(true);
-
-        Ok(Self { client: Arc::new(smol::lock::RwLock::new(client)), notifier, subscriber })
+        Ok(Self { client: Arc::new(RwLock::new(client)), event: Arc::new(Event::new()) })
     }
 
-    pub async fn client(&self) -> MpdGuard {
-        MpdGuard { guard: self.client.write_arc().await, notifier: None }
+    pub async fn client(&self) -> MpdGuard<'_> {
+        MpdGuard { guard: self.client.write().unwrap(), event: None }
     }
 
-    pub async fn client_with_notify(&self) -> MpdGuard {
-        MpdGuard { guard: self.client.write_arc().await, notifier: Some(self.notifier.clone()) }
+    pub async fn client_with_notify(&self) -> MpdGuard<'_> {
+        MpdGuard { guard: self.client.write().unwrap(), event: Some(self.event.clone()) }
     }
 
-    pub async fn notify_update(&mut self) {
-        self.notifier.broadcast_direct(()).await.unwrap();
+    pub async fn notify_update(&self) {
+        self.event.notify(usize::MAX);
     }
 
-    pub async fn wait_an_update(&mut self) {
-        self.subscriber.recv().await.unwrap();
+    pub async fn wait_for_update(&self) {
+        let listener = self.event.listen();
+        listener.await;
     }
 }
 
-/// Rw guard for [`MpdClient`], which binds the client for the current
+/// RwGuard for [`MpdClient`], which binds the client for the current
 /// thread and notifies subscribers for UI updates on drop if enabled.
-pub struct MpdGuard {
-    guard: smol::lock::RwLockWriteGuardArc<Client>,
-    notifier: Option<async_broadcast::Sender<()>>,
+pub struct MpdGuard<'a> {
+    guard: RwLockWriteGuard<'a, Client>,
+    event: Option<Arc<Event>>,
 }
 
-impl Deref for MpdGuard {
+impl Deref for MpdGuard<'_> {
     type Target = Client;
 
     fn deref(&self) -> &Self::Target {
@@ -61,17 +59,19 @@ impl Deref for MpdGuard {
     }
 }
 
-impl DerefMut for MpdGuard {
+impl DerefMut for MpdGuard<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut *self.guard
     }
 }
 
-impl Drop for MpdGuard {
+impl Drop for MpdGuard<'_> {
     fn drop(&mut self) {
-        let Some(notifier) = self.notifier.clone() else {
-            return;
-        };
-        notifier.broadcast_blocking(()).unwrap();
+        if let Some(event) = self.event.clone() {
+            smol::spawn(async move {
+                event.notify(usize::MAX);
+            })
+            .detach();
+        }
     }
 }

@@ -47,7 +47,7 @@ pub fn PlayerStatusBar(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
                 });
             }
 
-            mpd.wait_an_update().await;
+            mpd.wait_for_update().await;
         }
     });
 
