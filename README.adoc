@@ -14,7 +14,7 @@ cargo run -- --port $MPD_PORT
 * [ ] General tech
 ** [ ] `#deny(missing_docs)`
 * [ ] General UI
-** [ ] Selectable tabs
+** [x] Selectable tabs
 ** [ ] Dynamic quick help footer
 ** [ ] Help page
 * [ ] Playback tab

@@ -36,6 +36,15 @@ pub enum AppTab {
     Queue,
 }
 
+impl AppTab {
+    fn text(&self) -> &'static str {
+        match self {
+            AppTab::Playback => "Playback",
+            AppTab::Queue => "Queue",
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct RunContext {
     config: Arc<Config>,
@@ -110,7 +119,7 @@ pub fn Minisong(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
 }
 
 #[component]
-pub fn AppTabs(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
+fn AppTabs(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
     let mut tab = hooks.use_state_default::<AppTab>();
     hooks.use_terminal_events({
         move |event| match event {
@@ -160,8 +169,38 @@ pub fn AppTabs(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
                 padding_left: 1,
                 padding_right: 1,
             ) {
-                Text(color: if tab.get() == AppTab::Playback { Color::White } else { Color::Grey }, content: "Playback")
-                Text(color: if tab.get() == AppTab::Queue { Color::White } else { Color::Grey }, content: "Queue")
+                SelectableTab(current_tab: tab, self_tab: AppTab::Playback)
+                SelectableTab(current_tab: tab, self_tab: AppTab::Queue)
+            }
+        }
+    }
+}
+
+#[derive(Default, Props)]
+struct SelectableTabProps {
+    current_tab: Option<State<AppTab>>,
+    self_tab: AppTab,
+}
+
+#[component]
+fn SelectableTab(_hooks: Hooks, props: &SelectableTabProps) -> impl Into<AnyElement<'static>> {
+    let is_selected = props.current_tab.is_some_and(|tab| tab == props.self_tab);
+    let color = if is_selected { Color::White } else { Color::Grey };
+
+    let current_tab = props.current_tab.clone();
+    let self_tab = props.self_tab.clone();
+    let on_click = move |_| {
+        let Some(mut current_tab) = current_tab else {
+            return;
+        };
+
+        current_tab.set(self_tab);
+    };
+
+    element! {
+        Fragment {
+            Button(handler: on_click) {
+                Text(color: color, content: props.self_tab.text())
             }
         }
     }
