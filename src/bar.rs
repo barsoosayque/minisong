@@ -53,7 +53,7 @@ pub fn PlayerStatusBar(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
 
     let mpd = ctx.mpd.clone();
     let action = hooks.use_async_handler(move |action: Action| {
-        let mpd = mpd.clone();
+        let mut mpd = mpd.clone();
         async move {
             let mut client = mpd.client_with_notify().await;
             match action {

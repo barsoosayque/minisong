@@ -3,8 +3,8 @@ use std::sync::Arc;
 use crate::{
     bar,
     components::Spinner,
-    current_song,
     mpd::MpdClient,
+    playback,
     task::{TaskStatus, UseTask},
 };
 use clap::Parser;
@@ -26,6 +26,14 @@ pub struct Config {
 #[derive(Debug)]
 pub struct AppContext {
     pub mpd: MpdClient,
+}
+
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(u8)]
+pub enum AppTab {
+    #[default]
+    Playback,
+    Queue,
 }
 
 #[derive(Debug, Clone)]
@@ -80,7 +88,7 @@ pub fn Minisong(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
             ContextProvider(value: Context::owned(AppContext { mpd: mpd.clone() })) {
                 View(width, height, flex_direction: FlexDirection::Column) {
                     bar::PlayerStatusBar()
-                    current_song::CurrentSongScreen()
+                    AppTabs()
                 }
             }
         }
@@ -88,14 +96,73 @@ pub fn Minisong(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
         TaskStatus::InProgress => element! {
             View(
                 width, height,
+                gap: 1,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 flex_direction: FlexDirection::Row
             ) {
                 Spinner()
-                Text(content: " Connecting..")
+                Text(content: "Connecting..")
             }
         }
         .into_any(),
+    }
+}
+
+#[component]
+pub fn AppTabs(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
+    let mut tab = hooks.use_state_default::<AppTab>();
+    hooks.use_terminal_events({
+        move |event| match event {
+            TerminalEvent::Key(KeyEvent { code, kind, .. }) if kind != KeyEventKind::Release => {
+                match code {
+                    KeyCode::Char('1') => {
+                        tab.set(AppTab::Playback);
+                    },
+                    KeyCode::Char('2') => {
+                        tab.set(AppTab::Queue);
+                    },
+                    _ => {},
+                }
+            },
+            _ => {},
+        }
+    });
+
+    element! {
+        Fragment(
+        ) {
+            View(
+                width: Percent(100.0),
+                height: Percent(100.0),
+                padding: 1,
+            ) {
+                #(match tab.get() {
+                    AppTab::Playback => element! { playback::PlaybackScreen() }.into_any(),
+                    AppTab::Queue => element! {
+                        View(
+                            width: Percent(100.0),
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::Center,
+                        ) {
+                            Text(content: "TODO: Queue Tab")
+                        }
+                    }.into_any(),
+                })
+            }
+            View(
+                width: Percent(100.0),
+                height: 1,
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
+                background_color: Color::Black,
+                padding_left: 1,
+                padding_right: 1,
+            ) {
+                Text(color: if tab.get() == AppTab::Playback { Color::White } else { Color::Grey }, content: "Playback")
+                Text(color: if tab.get() == AppTab::Queue { Color::White } else { Color::Grey }, content: "Queue")
+            }
+        }
     }
 }

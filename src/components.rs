@@ -31,8 +31,7 @@ pub fn ProgressBar<'a>(
     mut hooks: Hooks,
     props: &mut ProgressBarProps,
 ) -> impl Into<AnyElement<'a>> {
-    let rect = hooks.use_component_rect();
-    let rect = rect.get();
+    let rect = hooks.use_component_rect().get().unwrap_or_default();
     let width = rect.right - rect.left;
     let (full_width, _) = hooks.use_terminal_size();
 

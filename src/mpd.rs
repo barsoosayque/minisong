@@ -26,11 +26,11 @@ impl MpdClient {
         Ok(Self { client: Arc::new(RwLock::new(client)), event: Arc::new(Event::new()) })
     }
 
-    pub async fn client(&self) -> MpdGuard<'_> {
+    pub async fn client(&mut self) -> MpdGuard<'_> {
         MpdGuard { guard: self.client.write().unwrap(), event: None }
     }
 
-    pub async fn client_with_notify(&self) -> MpdGuard<'_> {
+    pub async fn client_with_notify(&mut self) -> MpdGuard<'_> {
         MpdGuard { guard: self.client.write().unwrap(), event: Some(self.event.clone()) }
     }
 

@@ -27,7 +27,7 @@ enum Action {
 
 /// Current MPD status screen.
 #[component]
-pub fn CurrentSongScreen(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
+pub fn PlaybackScreen(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
     let ctx = hooks.use_context::<AppContext>();
 
     let mut current: State<Option<CurrentSong>> = hooks.use_state(|| None);
@@ -40,8 +40,11 @@ pub fn CurrentSongScreen(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
                 let status = client.status().unwrap();
 
                 if let Some(song) = song {
-                    let current_elapsed = current.read().as_ref().map(|current| current.elapsed);
-                    let current_duration = current.read().as_ref().map(|current| current.duration);
+                    let (current_elapsed, current_duration) = current
+                        .read()
+                        .as_ref()
+                        .map(|current| (current.elapsed, current.duration))
+                        .unzip();
                     current.set(Some(CurrentSong {
                         artist: song.artist.unwrap_or_default(),
                         title: song.title.unwrap_or_default(),
@@ -62,11 +65,11 @@ pub fn CurrentSongScreen(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
                 }
             }
 
-            mpd.wait_an_update().await;
+            mpd.wait_for_update().await;
         }
     });
 
-    let mut mpd = ctx.mpd.clone();
+    let mpd = ctx.mpd.clone();
     hooks.use_future(async move {
         loop {
             smol::Timer::interval(std::time::Duration::from_millis(500)).await;
@@ -76,7 +79,7 @@ pub fn CurrentSongScreen(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
 
     let mpd = ctx.mpd.clone();
     let change_postion_to = hooks.use_async_handler(move |amount: f32| {
-        let mpd = mpd.clone();
+        let mut mpd = mpd.clone();
         let duration = current.read().as_ref().map(|current| current.duration).unwrap_or_default();
         async move {
             let mut client = mpd.client_with_notify().await;
@@ -85,7 +88,7 @@ pub fn CurrentSongScreen(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
     });
     let mpd = ctx.mpd.clone();
     let action = hooks.use_async_handler(move |action: Action| {
-        let mpd = mpd.clone();
+        let mut mpd = mpd.clone();
         async move {
             let mut client = mpd.client_with_notify().await;
             match action {
