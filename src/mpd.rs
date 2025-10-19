@@ -17,6 +17,7 @@ pub struct MpdClient {
 }
 
 impl MpdClient {
+    /// Create a new [`MpdClient`] and connect it to `addr` with optional `password`.
     pub fn new(addr: impl ToSocketAddrs, password: Option<impl AsRef<str>>) -> eyre::Result<Self> {
         let mut client = Client::connect(addr)?;
         if let Some(password) = password {
@@ -26,18 +27,24 @@ impl MpdClient {
         Ok(Self { client: Arc::new(RwLock::new(client)), event: Arc::new(Event::new()) })
     }
 
-    pub async fn client(&mut self) -> MpdGuard<'_> {
+    /// Wait for write access to the [`MpdClient`] and bind it to the current thread.
+    pub async fn bind(&mut self) -> MpdGuard<'_> {
         MpdGuard { guard: self.client.write().unwrap(), event: None }
     }
 
-    pub async fn client_with_notify(&mut self) -> MpdGuard<'_> {
+    /// Wait for write access to the [`MpdClient`], bind it to the current thread, and
+    /// send an update to every [`MpdClient::wait_for_update`] when the access ends.
+    pub async fn bind_then_notify(&mut self) -> MpdGuard<'_> {
         MpdGuard { guard: self.client.write().unwrap(), event: Some(self.event.clone()) }
     }
 
+    /// Notify every [`MpdClient::wait_for_update`].
     pub async fn notify_update(&self) {
         self.event.notify(usize::MAX);
     }
 
+    /// Wait for updates sent by [`MpdClient::notify_update`] or on drop
+    /// of [`MpdGuard`] created by [`MpdClient::client_with_notify`].
     pub async fn wait_for_update(&self) {
         let listener = self.event.listen();
         listener.await;

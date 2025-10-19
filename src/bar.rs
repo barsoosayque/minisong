@@ -32,7 +32,7 @@ pub fn PlayerStatusBar(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
     hooks.use_future(async move {
         loop {
             {
-                let mut client = mpd.client().await;
+                let mut client = mpd.bind().await;
                 let status = client.status().unwrap();
                 mpd_status.set(PlayerStatus {
                     volume: status.volume as f32 / 100.0,
@@ -55,7 +55,7 @@ pub fn PlayerStatusBar(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
     let action = hooks.use_async_handler(move |action: Action| {
         let mut mpd = mpd.clone();
         async move {
-            let mut client = mpd.client_with_notify().await;
+            let mut client = mpd.bind_then_notify().await;
             match action {
                 Action::ChangeVolume(amount) => {
                     client

@@ -35,7 +35,7 @@ pub fn PlaybackScreen(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
     hooks.use_future(async move {
         loop {
             {
-                let mut client = mpd.client().await;
+                let mut client = mpd.bind().await;
                 let song = client.currentsong().unwrap();
                 let status = client.status().unwrap();
 
@@ -82,7 +82,7 @@ pub fn PlaybackScreen(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
         let mut mpd = mpd.clone();
         let duration = current.read().as_ref().map(|current| current.duration).unwrap_or_default();
         async move {
-            let mut client = mpd.client_with_notify().await;
+            let mut client = mpd.bind_then_notify().await;
             client.rewind((duration.as_seconds_f32() * amount) as f64).unwrap();
         }
     });
@@ -90,7 +90,7 @@ pub fn PlaybackScreen(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
     let action = hooks.use_async_handler(move |action: Action| {
         let mut mpd = mpd.clone();
         async move {
-            let mut client = mpd.client_with_notify().await;
+            let mut client = mpd.bind_then_notify().await;
             match action {
                 Action::Rewind(amount) => {
                     let elapsed =
