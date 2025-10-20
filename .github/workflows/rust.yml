@@ -1,52 +1,32 @@
-name: Rust
+name: Cargo
 
 on:
   push:
-    branches:
-      - main
   pull_request:
-    branches:
-      - main
+
+env: 
+  CARGO_TERM_COLOR: always
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
-      
+      uses: actions/checkout@v5
     - name: Set up Rust
-      uses: actions/setup-rust@v1
-      with:
-        rust-version: stable
-      
-    - name: Install dependencies
-      run: |
-        cargo build --release
-
-    - name: Run tests
-      run: |
-        cargo test --release
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+    - run: cargo build --release
+    - run: cargo test --release
           
   coverage:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
-      
+      uses: actions/checkout@v5
     - name: Set up Rust
-      uses: actions/setup-rust@v1
-      with:
-        rust-version: stable
-      
-    - name: Install tarpaulin (coverage tool)
-      run: |
-        cargo install cargo-tarpaulin
-
-    - name: Run tests with coverage
-      run: |
-        cargo tarpaulin --out Xml
-
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+    - run: cargo install cargo-tarpaulin
+    - run: cargo tarpaulin --out Xml
     - name: Upload coverage results
       uses: codecov/codecov-action@v3
       with:
