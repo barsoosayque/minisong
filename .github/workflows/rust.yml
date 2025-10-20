@@ -1,0 +1,53 @@
+name: Rust
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+      
+    - name: Set up Rust
+      uses: actions/setup-rust@v1
+      with:
+        rust-version: stable
+      
+    - name: Install dependencies
+      run: |
+        cargo build --release
+
+    - name: Run tests
+      run: |
+        cargo test --release
+          
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+      
+    - name: Set up Rust
+      uses: actions/setup-rust@v1
+      with:
+        rust-version: stable
+      
+    - name: Install tarpaulin (coverage tool)
+      run: |
+        cargo install cargo-tarpaulin
+
+    - name: Run tests with coverage
+      run: |
+        cargo tarpaulin --out Xml
+
+    - name: Upload coverage results
+      uses: codecov/codecov-action@v3
+      with:
+        file: target/debug/deps/coverage.xml
