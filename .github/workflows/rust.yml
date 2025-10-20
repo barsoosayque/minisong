@@ -26,8 +26,6 @@ jobs:
     - name: Set up Rust
       uses: actions-rust-lang/setup-rust-toolchain@v1
     - run: cargo install cargo-tarpaulin
-    - run: cargo tarpaulin --out Xml
+    - run: cargo tarpaulin --verbose --all-features --workspace --timeout 120 --out xml
     - name: Upload coverage results
       uses: codecov/codecov-action@v3
-      with:
-        file: target/debug/deps/coverage.xml
