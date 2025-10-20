@@ -1,7 +1,7 @@
 = Minisong
 
-image::https://github.com/barsoosayque/minisong/workflows/Rust%20CI/badge.svg[Build Status, link="https://github.com/barsoosayque/minisong/actions"]
-image::https://codecov.io/gh/barsoosayque/minisong/branch/main/graph/badge.svg[Codecov, link="https://codecov.io/gh/barsoosayque/minisong"]
+image:https://img.shields.io/github/actions/workflow/status/barsoosayque/minisong/rust.yml?branch=main[Build]
+image:https://img.shields.io/codecov/c/gh/barsoosayque/minisong[Codecov]
 
 Tiny MPD client for the terminal.
 Work in progress !
